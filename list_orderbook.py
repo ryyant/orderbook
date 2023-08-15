@@ -13,7 +13,7 @@ class Order:
         return self.price > other.price
 
 
-class ListOrderBook:
+class OrderBook:
     def __init__(self):
         self._orders = []
 
@@ -50,6 +50,10 @@ class ListOrderBook:
         if a trade is possible, update the order book accordingly.
         otherwise, insert the order into the book.
         """
+        exists = self.check_exist(order)
+        if exists:
+            return
+
         other = self._find_trade(order)
         if other:
             self._orders.remove(other)
@@ -62,7 +66,35 @@ class ListOrderBook:
                 order_book.add(Order(other.is_buy, -qty_left, other.price))
         else:
             self._orders.append(order)
-            self._orders.sort(key=lambda x: x.price, reverse=True)
+            self._orders.sort(key=lambda x: x.price, reverse=True) # Descending
+
+    def check_exist(self, order):
+        buys, sells = self._split_into_buy_and_sell_orders()
+        sells = sorted(sells)
+
+        if order.is_buy:
+            for buy in buys:
+                if order.price == buy.price:
+                    buy.qty += order.qty
+                    return True
+
+        if not order.is_buy:
+            for sell in sells:
+                if order.price == sell.price:
+                    sell.qty += order.qty
+                    return True
+
+        return False
+
+        # i = 0
+        # while i < len(self._orders):
+        #     # check if already exists then overwrite
+        #     if (order.is_buy == self._orders[i].is_buy) and (order.price == self._orders[i].price):
+        #         new_qty = order.qty + self._orders[i].qty
+        #         self._orders[i] = Order(order.is_buy, new_qty, order.price)
+        #         return True
+        #     i += 1
+        # return False
 
     def _find_trade(self, order):
         """
@@ -71,27 +103,37 @@ class ListOrderBook:
         for sell orders,the highest buy price.
         if no orders meet the criteria, return None.
         """
-        ret = None
-        i = 0
-        while i < len(self._orders):
-            # different order types
-            if order.is_buy != self._orders[i].is_buy:
-                # buy, order buy price greater than book sell price
-                # sell, order sell price smaller than book buy price
-                if (order.is_buy and (order.price >= self._orders[i].price)) or (
-                    not order.is_buy and (order.price <= self._orders[i].price)
-                ):
-                    ret = self._orders[i]
-                    break
-            i += 1
-        return ret
+        buys, sells = self._split_into_buy_and_sell_orders()
+        sells = sorted(sells) # sells need to be ascending
+
+        if order.is_buy:
+            for sell in sells:
+                if order.price >= sell.price:
+                    return sell
+
+        if not order.is_buy:
+            for buy in buys:
+                if order.price <= buy.price:
+                    return buy
+
+        return None
+
+        # ret = None
+        # i = 0
+        # while i < len(self._orders):
+        #     # different sides
+        #     if order.is_buy != self._orders[i].is_buy:
+        #         if (order.is_buy and (order.price >= self._orders[i].price)) or (not order.is_buy and (order.price <= self._orders[i].price)):
+        #             ret = self._orders[i]
+        #             break
+        #     i += 1
+        # return ret
 
 
-def parse(order_book=ListOrderBook()):
+def parse(order_book=OrderBook()):
     while True:
         line = input().strip().split()
         if line[0] == "end":
-            print("\n")
             break
 
         is_buy = line[0] == "buy"
@@ -99,7 +141,7 @@ def parse(order_book=ListOrderBook()):
         order_book.add(Order(is_buy, int(qty), float(price)))
 
 
-with ListOrderBook() as order_book:
+with OrderBook() as order_book:
     parse(order_book)
     order_book.add(Order(True, 10, 11.0))
 
